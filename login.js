@@ -20,53 +20,43 @@ const pool = new Pool({
 
 app.post('/register', async (req, res) => {
   const { email, password, role } = req.body;
-  try {
-    const result = await pool.query('INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING id', [email, password, role]);
+    const result = await pool.query(`INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING id`, [email, password, role]);
     const userId = result.rows[0].id;
-    const token = jwt.sign({ userId, role }, secretKey, { expiresIn: '1h' });
-    res.json({ token });
-  } catch (error) {
-    console.error('Error during registration:', error);
-    res.status(500).json({ error: 'Registration failed' });
-  }
-});
+    if (err) {
+      console.log(err)
+      res.status(500).json(err);
+    } else {
+      res.status(200).json(result);
+      }
+    });
 
 app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1 AND password = $2', [email, password]);
-    if (result.rows.length === 0) {
-      res.status(401).json({ error: 'Invalid credentials' });
+  const { email, password } = req.body;  
+  pool.query(`SELECT * FROM public.users WHERE email = '${email}' AND password = '${password}'`,)
+    if (err) {
+      console.log(err)
+      res.status(500).json(err);
     } else {
-      const user = result.rows[0];
-      const token = jwt.sign({ userId: user.id, role: user.role }, secretKey, { expiresIn: '1h' });
-      res.json({ token });
-    }
-  } catch (error) {
-    console.error('Error during login:', error);
-    res.status(500).json({ error: 'Login failed' });
-  }
-});
+      res.status(200).json(result);
+      }
+  });
 
 function authenticateToken(req, res, next) {
-  const token = req.headers['token'];
+  const token = req.headers['authorization'];
   if (token == null) {
-    console.log('No token provided');
     return res.sendStatus(401);
   }
   jwt.verify(token, secretKey, (err, user) => {
     if (err) {
-      console.log('Token verification failed:', err.message);
       return res.sendStatus(403);
     }
-    console.log('Token verified:', user);
     req.user = user;
     next();
   });
 }
 
 app.get('/movies', authenticateToken, (req, res) => {
-  if (req.role === 'Supervisor') {
+  if (req.user.role === 'supervisor') {
     res.json({ message: 'Welcome to the Movies page, Supervisor!' });
   } else {
     res.status(403).json({ error: 'Forbidden. Only supervisors can access this page.' });
