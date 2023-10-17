@@ -14,7 +14,7 @@ const options = {
       description: 'API documentation for Movies',
     },
   },
-  apis: ['index.js'], // Specify the file containing your API routes
+  apis: ['Movies_API.js'], // Specify the file containing your API routes
 };
 
 const specs = swaggerJsdoc(options);
@@ -22,7 +22,7 @@ const specs = swaggerJsdoc(options);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 /**
- * @openapi
+ * @swagger
  * /movies:
  *   get:
  *     summary: Get a list of movies
