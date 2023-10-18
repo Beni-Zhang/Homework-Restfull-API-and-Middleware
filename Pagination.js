@@ -14,10 +14,11 @@ const pool = new Pool({
 });
 
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/users', async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = parseInt(req.body.page) || 1;
+    const limit = parseInt(req.body.limit) || 10;
     const offset = (page - 1) * limit;
   
     try {
@@ -29,8 +30,8 @@ app.get('/users', async (req, res) => {
   });
 
   app.get('/movies', async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = parseInt(req.body.page) || 1;
+    const limit = parseInt(req.body.limit) || 10;
     const offset = (page - 1) * limit;
   
     try {

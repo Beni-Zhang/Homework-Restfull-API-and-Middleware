@@ -35,21 +35,21 @@ const authenticateJWT = (req, res, next) => {
 
 // Register user endpoint
 app.post('/register', (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, id, role } = req.body;
 
-  const query = 'INSERT INTO users (email, password) VALUES ($1, $2)';
-  const values = [email, password];
+  const query = 'INSERT INTO users (id, email, password, role) VALUES ($1, $2, $3, $4)';
+  const values = [id, email, password, role];
 
   pool.query(query, values, (err, result) => {
     if (err) {
       res.status(500).send('Error registering user');
     } else {
-      const token = jwt.sign({ email }, jwtSecret);
-      res.status(201).json({ token }); // Send the token as a response for successful registration
+      const token = jwt.sign({ id, email, role }, jwtSecret);
+      console.log('User role:', role); 
+      res.status(201).json({ token });
     }
   });
 });
-
 
 // Login user endpoint
 app.post('/login', (req, res) => {
@@ -63,8 +63,10 @@ app.post('/login', (req, res) => {
       res.status(500).send('Error logging in');
     } else {
       if (result.rows.length === 1) {
-        const token = jwt.sign({ email }, jwtSecret);
-        res.status(200).json({ token }); // Send the token as a response for successful login
+        const { role } = result.rows[0];
+        const token = jwt.sign({ email, role }, jwtSecret);
+        console.log('User role:', role); 
+        res.status(200).json({ token }); 
       } else {
         res.status(401).send('Invalid credentials');
       }
@@ -72,11 +74,10 @@ app.post('/login', (req, res) => {
   });
 });
 
-
 app.get('/movies', authenticateJWT, (req, res) => {
   const user = req.user;
 
-  console.log('User role:', user.role);
+  console.log('User role:, User email:', user.role, user.email);
 
   if (user.role === 'Supervisor') {
     const query = 'SELECT * FROM movies';
