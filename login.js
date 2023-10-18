@@ -17,12 +17,12 @@ const pool = new Pool({
 
 const jwtSecret = 'beny';
 
-// Middleware to authenticate JWT token
 const authenticateJWT = (req, res, next) => {
   const token = req.header('Authorization');
   if (token) {
     jwt.verify(token, jwtSecret, (err, user) => {
       if (err) {
+
         return res.sendStatus(403);
       }
       req.user = user;
@@ -44,12 +44,12 @@ app.post('/register', (req, res) => {
     if (err) {
       res.status(500).send('Error registering user');
     } else {
-      res.status(201).send('User registered successfully');
+      const token = jwt.sign({ email }, jwtSecret);
+      res.status(201).json({ token }); // Send the token as a response for successful registration
     }
   });
-  const token = jwt.sign({ email }, jwtSecret);
-  res.status(201).json({ token });
 });
+
 
 // Login user endpoint
 app.post('/login', (req, res) => {
@@ -63,23 +63,22 @@ app.post('/login', (req, res) => {
       res.status(500).send('Error logging in');
     } else {
       if (result.rows.length === 1) {
-        res.status(200).send('Login successful');
+        const token = jwt.sign({ email }, jwtSecret);
+        res.status(200).json({ token }); // Send the token as a response for successful login
       } else {
         res.status(401).send('Invalid credentials');
       }
     }
   });
-  const token = jwt.sign({ email }, jwtSecret);
-  res.status(200).json({ token });
 });
 
-// Movies endpoint accessible by supervisor only
+
 app.get('/movies', authenticateJWT, (req, res) => {
   const user = req.user;
 
-  // Check if the user is a supervisor
-  if (user.role === 'supervisor') {
-    // Retrieve movies from the database
+  console.log('User role:', user.role);
+
+  if (user.role === 'Supervisor') {
     const query = 'SELECT * FROM movies';
     pool.query(query, (err, result) => {
       if (err) {
@@ -87,13 +86,14 @@ app.get('/movies', authenticateJWT, (req, res) => {
         res.status(500).send('Error fetching movies');
       } else {
         const movies = result.rows;
-        res.json({ movies });  // Send the JSON response here
+        res.json({ movies });
       }
     });
   } else {
-    res.status(403).send('Access forbidden for non-supervisors');  // Send the response here
+    res.status(403).send('Access forbidden for non-supervisors');
   }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
