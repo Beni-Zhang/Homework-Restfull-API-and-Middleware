@@ -17,21 +17,48 @@ const pool = new Pool({
 
 const jwtSecret = 'beny';
 
-const authenticateJWT = (req, res, next) => {
-  const token = req.header('Authorization');
-  if (token) {
-    jwt.verify(token, jwtSecret, (err, user) => {
-      if (err) {
-
-        return res.sendStatus(403);
-      }
-      req.user = user;
-      next();
-    });
-  } else {
-    res.sendStatus(401);
+// GET endpoint to fetch movies
+app.get('/movies', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM movies');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-};
+});
+
+// POST endpoint to add a new movie
+app.post('/movies', async (req, res) => {
+  try {
+    const { id, title, genres ,year } = req.body;
+    const result = await pool.query('INSERT INTO movies (id, title, genres ,year) VALUES ($1, $2, $3, $4) RETURNING *', [id, title, genres, year]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE endpoint to remove a movie by ID
+app.delete('/movies', async (req, res) => {
+  try {
+    const { id } = req.body;
+    const result = await pool.query('DELETE FROM movies WHERE id = $1 RETURNING *', [id]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT endpoint to update a movie by ID
+app.put('/movies', async (req, res) => {
+  try {
+    const { title, genres, year, id } = req.body;
+    const result = await pool.query('UPDATE movies SET title = $1, genres = $2, year = $3 WHERE id = $4 RETURNING *', [title, genres, year, id]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Register user endpoint
 app.post('/register', (req, res) => {
@@ -74,17 +101,33 @@ app.post('/login', (req, res) => {
   });
 });
 
-app.get('/movies', authenticateJWT, (req, res) => {
+const authenticateJWT = (req, res, next) => {
+  const token = req.header('Authorization');
+  if (token) {
+    jwt.verify(token, jwtSecret, (err, user) => {
+      if (err) {
+
+        return res.sendStatus(403);
+      }
+      req.user = user;
+      next();
+    });
+  } else {
+    res.sendStatus(401);
+  }
+};
+
+app.get('/users', authenticateJWT, (req, res) => {
   const user = req.user;
 
   console.log('User role:, User email:', user.role, user.email);
 
   if (user.role === 'Supervisor') {
-    const query = 'SELECT * FROM movies';
+    const query = 'SELECT * FROM users';
     pool.query(query, (err, result) => {
       if (err) {
-        console.error('Error fetching movies:', err);
-        res.status(500).send('Error fetching movies');
+        console.error('Error fetching users:', err);
+        res.status(500).send('Error fetching users');
       } else {
         const movies = result.rows;
         res.json({ movies });
@@ -94,7 +137,6 @@ app.get('/movies', authenticateJWT, (req, res) => {
     res.status(403).send('Access forbidden for non-supervisors');
   }
 });
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
