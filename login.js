@@ -1,14 +1,11 @@
-// app.js
 const express = require('express');
 const bodyParser = require('body-parser');
-const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
-
+const jwt = require('jsonwebtoken');
 const app = express();
-const port = 3000;
-const secretKey = 'jndjanf2rj23j5njnk2k4nn5n7n9nj53nn2nn265jndjgns';  // Ganti dengan kunci rahasia yang kuat
 
-app.use(bodyParser.json());
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: true }));
 
 const pool = new Pool({
   user: 'postgres',
@@ -18,51 +15,87 @@ const pool = new Pool({
   port: 5432,
 });
 
-app.post('/register', async (req, res) => {
-  const { email, password, role } = req.body;
-    const result = await pool.query(`INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING id`, [email, password, role]);
-    const userId = result.rows[0].id;
+const jwtSecret = 'beny';
+
+// Middleware to authenticate JWT token
+const authenticateJWT = (req, res, next) => {
+  const token = req.header('Authorization');
+  if (token) {
+    jwt.verify(token, jwtSecret, (err, user) => {
+      if (err) {
+        return res.sendStatus(403);
+      }
+      req.user = user;
+      next();
+    });
+  } else {
+    res.sendStatus(401);
+  }
+};
+
+// Register user endpoint
+app.post('/register', (req, res) => {
+  const { email, password } = req.body;
+
+  const query = 'INSERT INTO users (email, password) VALUES ($1, $2)';
+  const values = [email, password];
+
+  pool.query(query, values, (err, result) => {
     if (err) {
-      console.log(err)
-      res.status(500).json(err);
+      res.status(500).send('Error registering user');
     } else {
-      res.status(200).json(result);
+      res.status(201).send('User registered successfully');
+    }
+  });
+  const token = jwt.sign({ email }, jwtSecret);
+  res.status(201).json({ token });
+});
+
+// Login user endpoint
+app.post('/login', (req, res) => {
+  const { email, password } = req.body;
+
+  const query = 'SELECT * FROM users WHERE email = $1 AND password = $2';
+  const values = [email, password];
+
+  pool.query(query, values, (err, result) => {
+    if (err) {
+      res.status(500).send('Error logging in');
+    } else {
+      if (result.rows.length === 1) {
+        res.status(200).send('Login successful');
+      } else {
+        res.status(401).send('Invalid credentials');
+      }
+    }
+  });
+  const token = jwt.sign({ email }, jwtSecret);
+  res.status(200).json({ token });
+});
+
+// Movies endpoint accessible by supervisor only
+app.get('/movies', authenticateJWT, (req, res) => {
+  const user = req.user;
+
+  // Check if the user is a supervisor
+  if (user.role === 'supervisor') {
+    // Retrieve movies from the database
+    const query = 'SELECT * FROM movies';
+    pool.query(query, (err, result) => {
+      if (err) {
+        console.error('Error fetching movies:', err);
+        res.status(500).send('Error fetching movies');
+      } else {
+        const movies = result.rows;
+        res.json({ movies });  // Send the JSON response here
       }
     });
-
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body;  
-  pool.query(`SELECT * FROM public.users WHERE email = '${email}' AND password = '${password}'`,)
-    if (err) {
-      console.log(err)
-      res.status(500).json(err);
-    } else {
-      res.status(200).json(result);
-      }
-  });
-
-function authenticateToken(req, res, next) {
-  const token = req.headers['authorization'];
-  if (token == null) {
-    return res.sendStatus(401);
-  }
-  jwt.verify(token, secretKey, (err, user) => {
-    if (err) {
-      return res.sendStatus(403);
-    }
-    req.user = user;
-    next();
-  });
-}
-
-app.get('/movies', authenticateToken, (req, res) => {
-  if (req.user.role === 'supervisor') {
-    res.json({ message: 'Welcome to the Movies page, Supervisor!' });
   } else {
-    res.status(403).json({ error: 'Forbidden. Only supervisors can access this page.' });
+    res.status(403).send('Access forbidden for non-supervisors');  // Send the response here
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running at port ${PORT}`);
 });
